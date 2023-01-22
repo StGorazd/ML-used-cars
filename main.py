@@ -1,13 +1,12 @@
 import pandas
-import phik
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy
 from phik.report import plot_correlation_matrix
-from sklearn.preprocessing import LabelEncoder, StandardScaler, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.ensemble import RandomForestClassifier
 
 data_file = 'data/autos.csv'
 encoders = []
@@ -35,35 +34,35 @@ def extract_date(data, label: str):
 def encode_values(data):
     sellerEncoder = LabelEncoder()
     data['seller'] = sellerEncoder.fit_transform(data['seller'])
-    encoders.append(sellerEncoder) # 0
+    encoders.append(sellerEncoder)  # 0
 
     offerEncoder = LabelEncoder()
     data['offerType'] = offerEncoder.fit_transform(data['offerType'])
-    encoders.append(offerEncoder) # 1
+    encoders.append(offerEncoder)  # 1
 
     vehicleTypeEncoder = LabelEncoder()
     data['vehicleType'] = vehicleTypeEncoder.fit_transform(data['vehicleType'])
-    encoders.append(vehicleTypeEncoder) # 2
+    encoders.append(vehicleTypeEncoder)  # 2
 
     gearboxEncoder = LabelEncoder()
     data['gearbox'] = gearboxEncoder.fit_transform(data['gearbox'])
-    encoders.append(gearboxEncoder) # 3
+    encoders.append(gearboxEncoder)  # 3
 
     modelEncoder = LabelEncoder()
     data['model'] = modelEncoder.fit_transform(data['model'])
-    encoders.append(modelEncoder) # 4
+    encoders.append(modelEncoder)  # 4
 
     fuelEncoder = LabelEncoder()
     data['fuelType'] = fuelEncoder.fit_transform(data['fuelType'])
-    encoders.append(fuelEncoder) # 5
+    encoders.append(fuelEncoder)  # 5
 
     brandEncoder = LabelEncoder()
     data['brand'] = brandEncoder.fit_transform(data['brand'])
-    encoders.append(brandEncoder) # 6
+    encoders.append(brandEncoder)  # 6
 
     damageEncoder = LabelEncoder()
     data['notRepairedDamage'] = damageEncoder.fit_transform(data['notRepairedDamage'])
-    encoders.append(damageEncoder) # 7
+    encoders.append(damageEncoder)  # 7
 
     return data
 
@@ -105,7 +104,7 @@ def compare_price_fuelType(data):
     plt.show()
 
 
-def compare_price_gerbox(data):
+def compare_price_gearbox(data):
     df_gear = data[['gearbox', 'price']]
     gearbox_price = df_gear.groupby('gearbox').mean()
     plt.figure(figsize=(6, 4))
@@ -119,43 +118,57 @@ def compare_price_gerbox(data):
 def linear_regression_price(data: pandas.DataFrame):
     X = data.drop('price', axis=1)
     X = X.to_numpy()
-    print(X.shape)
+
     y = data['price']
     y = y.to_numpy()
-    print(y.shape)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    print(X_train.shape)
-    print(y_train.shape)
-
     model = LinearRegression()
     model.fit(X_train, y_train)
-    print("Coef", model.coef_)
 
-    score = model.score(X_test, y_test)
-    print("Score", score)
+    y_pred: numpy.ndarray = model.predict(X_test)
 
-    pred: numpy.ndarray = model.predict(X_test)
+    generate_graph(y_pred, y_test, "Linear regression")
 
-    df = pandas.DataFrame([['S 1', 'S 1', 'S 2', 'S 2', 'S 3', 'S 3', 'S 4', 'S 4', 'S 5', 'S 5', 'S 6', 'S 6'],
-                           ['p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e'],
-                           [pred[0], y_test[0], pred[1], y_test[1],
-                            pred[2], y_test[2], pred[3], y_test[3],
-                            pred[4], y_test[4], pred[5], y_test[5]]]).T
+    print("Mean absolute error", mean_absolute_error(y_true=y_test, y_pred=y_pred))
+    print("Mean square error", mean_squared_error(y_true=y_test, y_pred=y_pred))
+
+
+def generate_graph(y_pred, y_test, title: str):
+    df = pandas.DataFrame([['S 1', 'S 1', 'S 2', 'S 2', 'S 3', 'S 3', 'S 4', 'S 4', 'S 5', 'S 5', 'S 6', 'S 6',
+                            'S 7', 'S 7', 'S 8', 'S 8'],
+                           ['p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e', 'p', 'e'],
+                           [y_pred[0], y_test[0], y_pred[1], y_test[1],
+                            y_pred[2], y_test[2], y_pred[3], y_test[3],
+                            y_pred[4], y_test[4], y_pred[5], y_test[5],
+                            y_pred[6], y_test[6], y_pred[7], y_test[7]]]).T
     df.columns = ['Sample', 'type', 'Price']
     df.set_index(['Sample', 'type'], inplace=True)
-
     df.unstack().plot.bar()
     plt.legend(["Expected", "Predicted"])
+    plt.title(title)
     plt.show()
 
-    print("Mean absolute error", mean_absolute_error(y_true=y_test, y_pred=pred))
-    print("Mean square error", mean_squared_error(y_true=y_test, y_pred=pred))
 
+def random_forest_price(data: pandas.DataFrame):
+    X = data.drop('price', axis=1)
+    X = X.to_numpy()
 
-def random_forest_price():
-    pass
+    y = data['price']
+    y = y.to_numpy()
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    model = RandomForestClassifier(n_estimators=100, max_depth=10)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+
+    generate_graph(y_pred, y_test, "Random Forest")
+
+    print("Mean absolute error", mean_absolute_error(y_true=y_test, y_pred=y_pred))
+    print("Mean square error", mean_squared_error(y_true=y_test, y_pred=y_pred))
+
 
 # load data
 loaded_data = load_data()
@@ -164,17 +177,18 @@ loaded_data = load_data()
 loaded_data = loaded_data.drop(['index', 'dateCrawled', 'abtest', 'nrOfPictures',
                                 'lastSeen', 'dateCreated', 'name', 'postalCode'], axis=1)
 
-# extract year, month and day from datetime format
-# loaded_data = extract_date(loaded_data, 'dateCreated')
-
 # delete rows with nan values
 loaded_data = loaded_data.dropna()
 
-# delete rows where powePS is 0
+# delete rows where powerPS is 0
 loaded_data = loaded_data[loaded_data['powerPS'] != 0]
 
 # delete rows where price is 0
 loaded_data = loaded_data[loaded_data['price'] != 0]
+
+# delete extreme values
+loaded_data = loaded_data[loaded_data['price'] < 100000]
+loaded_data = loaded_data[loaded_data['price'] > 500]
 
 # calculate phik correlation matrix
 # calculate_phik(loaded_data, r"Correlation $\phi_K$")
@@ -186,19 +200,16 @@ loaded_data = encode_values(loaded_data)
 # global_correlation(loaded_data, 'Global correlation')
 
 # delete offerType attribute
-loaded_data = loaded_data.drop(['offerType'], axis=1)
+loaded_data = loaded_data.drop(['offerType', 'powerPS', 'seller'], axis=1)
 
 # comparison of interesting attributes
-#compare_price_fuelType(loaded_data)
-#compare_price_gerbox(loaded_data)
-
-# # apply StandardScaler
-# scaler = StandardScaler()
-# loaded_data = pandas.DataFrame(scaler.fit_transform(loaded_data), columns=loaded_data.columns, index=loaded_data.index)
+# compare_price_fuelType(loaded_data)
+# compare_price_gearbox(loaded_data)
 
 # simple linear regression
-linear_regression_price(loaded_data)
+# linear_regression_price(loaded_data)
 
-
+# random forest
+# random_forest_price(loaded_data)
 
 print(loaded_data.head().to_string())
